@@ -1,39 +1,57 @@
 #!/usr/bin/python3
 '''
-Fabric script to distribute an archive to web servers
+fabric script to distribute an archive to web servers
+----NEEDS TO REVISIT SCRIPT
 '''
 
 import os
 from datetime import datetime
-from fabric.api import env, local, put, run
+from fabric.api import env, local, put, run, runs_once
+
 
 env.hosts = ['34.138.32.248', '3.226.74.205']
 
-def do_pack():
-    """Packs web_static files into an archive."""
+
+def do_deploy(archive_path):
+    """Distributes an archive to a web server.
+    Args:
+        archive_path (str): The path of the archive to distribute.
+    Returns:
+        If the file doesn't exist at archive_path or an error occurs - False.
+        Otherwise - True.
+    """
     if not os.path.isdir("versions"):
         os.mkdir("versions")
     cur_time = datetime.now()
     output = "versions/web_static_{}{}{}{}{}{}.tgz".format(
-        cur_time.year, cur_time.month, cur_time.day,
-        cur_time.hour, cur_time.minute, cur_time.second
+        cur_time.year,
+        cur_time.month,
+        cur_time.day,
+        cur_time.hour,
+        cur_time.minute,
+        cur_time.second
     )
     try:
         print("Packing web_static to {}".format(output))
         local("tar -cvzf {} web_static".format(output))
-        archive_size = os.stat(output).st_size
-        print("web_static packed: {} -> {} Bytes".format(output, archive_size))
-        return output
+        archize_size = os.stat(output).st_size
+        print("web_static packed: {} -> {} Bytes".format(output, archize_size))
     except Exception:
-        return None
+        output = None
+    return output
+
 
 def do_deploy(archive_path):
-    """Deploys the static files to the host servers."""
+    """Deploys the static files to the host servers.
+    Args:
+        archive_path (str): The path to the archived static files.
+    """
     if not os.path.exists(archive_path):
         return False
     file_name = os.path.basename(archive_path)
     folder_name = file_name.replace(".tgz", "")
     folder_path = "/data/web_static/releases/{}/".format(folder_name)
+    success = False
     try:
         put(archive_path, "/tmp/{}".format(file_name))
         run("mkdir -p {}".format(folder_path))
@@ -44,12 +62,7 @@ def do_deploy(archive_path):
         run("rm -rf /data/web_static/current")
         run("ln -s {} /data/web_static/current".format(folder_path))
         print('New version deployed!')
-        return True
+        success = True
     except Exception:
-        return False
-
-if __name__ == "__main__":
-    archive_path = do_pack()
-    if archive_path:
-        do_deploy(archive_path)
-
+        success = False
+    return success
